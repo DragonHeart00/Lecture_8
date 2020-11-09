@@ -36,13 +36,14 @@ public class main {
 
 	// run the main block with a fresh environment
 	//mainblock.eval(new Environment());
-	//TODO:
-	//Symtab env= new Symtab();
+
+	Symtab env= new Symtab();
 
 
 	// compile the main block with a fresh symbol table
-	String compiled=mainblock.compile(new Symtab());
-	System.out.println("Compiler result:\n\n"+compiled);
+		//step 10 run compile code
+		String compiled=mainblock.compile(new Symtab());
+		System.err.println("; Compiler result: \n\n" + compiled + "\n\n");
     }
 }
 
@@ -198,15 +199,17 @@ class ASTMaker extends AbstractParseTreeVisitor<AST> implements implVisitor<AST>
 	return result;
     }
 
-    //TODO: ADD ARRAY ASSIGNMENT
+   
     public AST visitAssignment(implParser.AssignmentContext ctx){
 	AST lhs=visit(ctx.l);
 	if(lhs instanceof Variable){
 	    Variable x = (Variable) lhs;
 	    return new Assignment(x.name,(Expr)visit(ctx.e));
 	}
-	else faux.error("Arrays not yet implemented.\n");
-	return null;
+	//TODO
+	//ADD ARRAY ASSIGNMENT
+	Array array=(Array) lhs;
+	return  new ArrayAssignment(array.a, array.index, (Expr)visit(ctx.e));
     }
 
     public AST visitOutput(implParser.OutputContext ctx){
@@ -251,20 +254,66 @@ class ASTMaker extends AbstractParseTreeVisitor<AST> implements implVisitor<AST>
     //TODO: Not yet implemented:
 
     public AST visitSmaller(implParser.SmallerContext ctx){
-	return null;
+	return new Smaller((Expr)visit(ctx.e1),(Expr)visit(ctx.e2) );
     }
-    public AST visitConjunction(implParser.ConjunctionContext ctx){ return null;}
-    public AST visitEqual(implParser.EqualContext ctx){return null;}
-    public AST visitNegation(implParser.NegationContext ctx){return null;}
+
+
+    public AST visitConjunction(implParser.ConjunctionContext ctx){
+    	return new Conjunction((Condition)visit(ctx.c1),(Condition)visit(ctx.c2));
+    }
+    public AST visitEqual(implParser.EqualContext ctx){
+    	return new Equal((Expr)visit(ctx.e1),(Expr)visit(ctx.e2));
+    }
+    public AST visitNegation(implParser.NegationContext ctx){
+    	return new Negation((Condition)visit(ctx.c));
+    }
 
     public AST visitParenthesisCondition(implParser.ParenthesisConditionContext ctx){
 	return visit(ctx.c); // we can forget about parentheses here
     }
-    public AST visitDisjunction(implParser.DisjunctionContext ctx){return null;}
+    public AST visitDisjunction(implParser.DisjunctionContext ctx){
+    	return new DisConjunction((Condition)visit(ctx.c1),(Condition)visit(ctx.c2));
+    }
     public AST visitLefthandside(implParser.LefthandsideContext ctx){
 	return visit(ctx.l);
     }
-    public AST visitArray(implParser.ArrayContext ctx){return null;}
-    public AST visitIf(implParser.IfContext ctx){return null;}
-    public AST visitForLoop(implParser.ForLoopContext ctx){return null;}
+    public AST visitArray(implParser.ArrayContext ctx){
+    	return new Array(ctx.a.getText(),(Expr)visit(ctx.e));
+    }
+    public AST visitIf(implParser.IfContext ctx){
+    	return new If((Condition)visit(ctx.c),(Command) visit(ctx.p));
+    }
+    public AST visitForLoop(implParser.ForLoopContext ctx){
+    	String x=ctx.x.getText();
+    	Expr e1= (Expr)visit(ctx.e1);
+		Expr e2= (Expr)visit(ctx.e2);
+		Command command = (Command)visit(ctx.p);
+
+		//step 1
+		Command c1= new Assignment(x,e1);
+
+		//step 2: first parameter of while loop
+		Condition c = new Unequal(new Variable(x),e2);
+
+		//step 3 parameters of sequence in step 4
+		Command command1= command;
+		Command command2= new Assignment(x,new Addition(new Variable(x),new Constant(1.0)));
+
+		//step 4: second parameter of while loop
+		Command body= new Sequence(command1,command2);
+
+
+		//step 4
+		Command c2= new While(c, body);
+
+		return new Sequence(c1,c2);
+
+		/*return
+				new Sequence(new Assignment(x,e1),
+				new While(new Unequal(new Variable(x),e2), new Sequence(command,
+				new Assignment(x,new Addition(new Variable(x),new Constant(1.0))))));
+
+		 */
+
+	}
 }

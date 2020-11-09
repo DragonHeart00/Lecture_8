@@ -15,12 +15,14 @@ class faux{ // collection of non-OO auxiliary functions (currently just error)
 
 
 abstract class AST{};
-
+//step 1 add abstract public String compile(Symtab env, String place);
 abstract class Expr extends AST{
     abstract public Double eval(Environment env);
     abstract public String compile(Symtab env, String place);
 };
 
+
+//step 3 Addition, Subtraction, Multiplication and Division
 class Addition extends Expr{
     public Expr e1,e2;
     Addition(Expr e1,Expr e2){this.e1=e1; this.e2=e2;}
@@ -90,15 +92,16 @@ class Division extends Expr{
     ;
 }
 
+
+//step 2: add compile to constant and Variable
 class Constant extends Expr{
     public Double value;
     Constant(Double value){this.value=value;}
     public Double eval(Environment env){ return value; }
 
-    //example page 20
     @Override
     public String compile(Symtab env, String place) {
-
+        //example page 20
         return place+":="+value+"\n";
     };
 }
@@ -116,6 +119,8 @@ class Variable extends Expr{
         return place+":="+name+"\n";
     };
 }
+
+
 
 //TODO: 
 class Array extends  Expr{
@@ -144,7 +149,7 @@ class Array extends  Expr{
 
 
 
-
+//step 11 add  abstract public String compile(Symtab env, String thenLabel, String elseLabel);
 abstract class Condition extends AST{
     abstract public Boolean eval(Environment env);
     abstract public String compile(Symtab env, String thenLabel, String elseLabel);
@@ -162,9 +167,9 @@ class Unequal extends Condition{
 
         return e1.compile(env,p1)+
                e2.compile(env,p2)+
-               "IF " + p1+ "==" + p2 +
-               " THEN" +
-               elseLabel+ "ELSE" +
+               "IF " + p1+ "==" + p2 +"\n"+
+               "THEN " +
+               elseLabel+"\n"+"ELSE " +
                thenLabel + "\n";
 
     }
@@ -173,24 +178,133 @@ class Unequal extends Condition{
 }
 
 
+//TODO:
+class Equal extends Condition{
+    public Expr e1,e2;
+
+    public Equal(Expr e1, Expr e2) {
+        this.e1 = e1;
+        this.e2 = e2;
+    }
+
+    @Override
+    public Boolean eval(Environment env) {
+        return e1.eval(env).equals(e2.eval(env));
+    }
+
+    @Override
+    public String compile(Symtab env, String thenLabel, String elseLabel) {
+        String p1= env.newvar();
+        String p2= env.newvar();
+        return
+                e1.compile(env,p1)+
+                e2.compile(env,p2)+
+                "IF "+p1+"=="+p2+ " THEN "+ thenLabel+ " ELSE " + elseLabel+"\n";
+    }
+}
+
+class Smaller extends Condition{
+    public Expr e1,e2;
+
+    public Smaller(Expr e1, Expr e2) {
+        this.e1 = e1;
+        this.e2 = e2;
+    }
+
+    @Override
+    public Boolean eval(Environment env) {
+        return e1.eval(env)<(e2.eval(env));
+    }
+
+    @Override
+    public String compile(Symtab env, String thenLabel, String elseLabel) {
+        String p1= env.newvar();
+        String p2= env.newvar();
+        return
+                e1.compile(env,p1)+
+                e2.compile(env,p2)+
+                "IF "+p1+"<"+p2+ " THEN "+ thenLabel+ " ELSE " + elseLabel+"\n";
+
+    }
+}
+
+class Conjunction extends Condition{
+    public Condition c1,c2;
+
+    public Conjunction(Condition c1, Condition c2) {
+        this.c1 = c1;
+        this.c2 = c2;
+    }
+
+    @Override
+    public Boolean eval(Environment env) {
+        return c1.eval(env) && c2.eval(env);
+    }
+
+    @Override
+    public String compile(Symtab env, String thenLabel, String elseLabel) {
+        String l=env.newlabel();
+
+        return
+               c1.compile(env,l,elseLabel)+
+               "LABEL " +l+":\n"+
+               c2.compile(env,thenLabel,elseLabel);
+    }
+}
+
+class DisConjunction extends Condition{
+    public Condition c1,c2;
+
+    public DisConjunction(Condition c1, Condition c2) {
+        this.c1 = c1;
+        this.c2 = c2;
+    }
+
+    @Override
+    public Boolean eval(Environment env) {
+        return c1.eval(env) || c2.eval(env);
+    }
+
+    @Override
+    public String compile(Symtab env, String thenLabel, String elseLabel) {
+        String l=env.newlabel();
+        return
+                c1.compile(env,thenLabel,l)+
+                "LABEL " +l+":\n"+
+                c2.compile(env,thenLabel,elseLabel);
+    }
+}
+
+class Negation extends Condition{
+    public Condition c;
+
+    public Negation(Condition c) {
+        this.c = c;
+    }
+
+    @Override
+    public Boolean eval(Environment env) {
+        return !c.eval(env);
+    }
+
+    @Override
+    public String compile(Symtab env, String thenLabel, String elseLabel) {
+        return c.compile(env,elseLabel,thenLabel);
+    }
+}
 
 
 
 
 
 
-
-
-
-
-
-
-
+//step 5 add abstract public String compile(Symtab env);
 abstract class Command extends AST{
     abstract public void eval(Environment env);
     abstract public String compile(Symtab env);
 };
 
+// step 6 add compile to Assignment
 class Assignment extends Command{
     public String x;
     public Expr e;
@@ -205,8 +319,8 @@ class Assignment extends Command{
     }
 }
 
+//TODO
 class ArrayAssignment extends  Command{
-
     public String x;
     public  Expr index;
     public  Expr e;
@@ -230,6 +344,7 @@ class ArrayAssignment extends  Command{
     }
 }
 
+//step 7 add compile to Output
 class Output extends Command{
     public Expr e;
     Output(Expr e){this.e=e;}
@@ -260,8 +375,8 @@ class While extends Command{
         return
                 "LABEL " + start + ":\n" + c.compile(env,lbody,end) +
                 "LABEL " + lbody + ":\n" + body.compile(env) +
-                "GOTO" + start + "\n" +
-                "LABEL" + end + ":\n";
+                "GOTO " + start + "\n" +
+                "LABEL " + end + ":\n";
         /*
         IF condition THEN BODY ELSE GOTO END
         BODY:
@@ -273,6 +388,8 @@ class While extends Command{
     }
 }
 
+
+//step 8 add compile to Sequence
 class Sequence extends Command{
     public Command c1,c2;
     Sequence(Command c1,Command c2){this.c1=c1; this.c2=c2;}
@@ -286,7 +403,7 @@ class Sequence extends Command{
         return c1.compile(env)+c2.compile(env);
     }
 }
-//no operation, use it for i we have if with empty else
+//step 9 add compile to Nop, no operation, use it for i we have if with empty else
 class Nop extends Command{
     Nop(){};
     public void eval(Environment env){}
@@ -297,4 +414,31 @@ class Nop extends Command{
     }
 
     ;
+}
+
+class If extends Command{
+    public Condition c;
+    public  Command p;
+
+    public If(Condition c, Command p) {
+        this.c = c;
+        this.p = p;
+    }
+
+    @Override
+    public void eval(Environment env) {
+        if (c.eval(env))
+            p.eval(env);
+    }
+
+    @Override
+    public String compile(Symtab env) {
+        String thenl=env.newlabel();
+        String endl=env.newlabel();
+
+        return c.compile(env,thenl,endl)+
+               "LABEL " + thenl+ "\n"+
+               p.compile(env)+
+               "LABEL " + endl+ ":\n";
+    }
 }
